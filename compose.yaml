@@ -1,0 +1,9 @@
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: cookie_clicker
+      POSTGRES_USER: click-master
+      POSTGRES_PASSWORD: click-the-cookie
+    ports:
+      - "5432:5432"
