@@ -1,4 +1,4 @@
-PROJECT_ID="${PROJECT_ID:?Set PROJECT_ID to your Firebase project id}"
+PROJECT_ID="${PROJECT_ID:-stepan-cookie-clicker}"
 REGION="europe-west1"
 SERVICE="cookie-clicker-api"
 REPOSITORY="cookie-clicker"
