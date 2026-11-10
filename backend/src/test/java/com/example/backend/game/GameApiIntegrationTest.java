@@ -72,6 +72,16 @@ class GameApiIntegrationTest {
     }
 
     @Test
+    void batchRetriedAfterResetIsNotCountedAgain() throws Exception {
+        var batchId = UUID.randomUUID();
+        click(batchId, 10);
+
+        mockMvc.perform(delete("/api/game"));
+
+        click(batchId, 10).andExpect(status().isOk()).andExpect(jsonPath("$.totalClicks").value(0));
+    }
+
+    @Test
     void parallelClicksAreNotLost() throws Exception {
         var executor = Executors.newFixedThreadPool(8);
         try {

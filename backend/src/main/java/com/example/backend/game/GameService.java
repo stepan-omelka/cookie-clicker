@@ -84,7 +84,6 @@ public class GameService {
     public GameDto reset() {
         var state = lockState();
         ownedUpgradeRepository.deleteAllInBatch();
-        clickBatchRepository.deleteAllInBatch();
         state.reset(clock.instant());
         return toDto(state.getCookies(), state, loadProduction());
     }
