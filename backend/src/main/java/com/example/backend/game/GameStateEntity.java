@@ -11,10 +11,14 @@ import java.time.Instant;
 @Table(name = "game_state")
 public class GameStateEntity {
 
+    static final double CLICKS_PER_SECOND_LIMIT = 20;
+    static final double MAX_CLICK_ALLOWANCE = 600;
+
     @Id
     private Long id;
     private double cookies;
     private long totalClicks;
+    private double clickAllowance;
     private Instant updatedAt;
 
     protected GameStateEntity() {
@@ -24,24 +28,29 @@ public class GameStateEntity {
         this.id = id;
         this.cookies = cookies;
         this.totalClicks = totalClicks;
+        this.clickAllowance = MAX_CLICK_ALLOWANCE;
         this.updatedAt = updatedAt;
     }
 
     public double cookiesAt(Instant now, long perSecond) {
-        long elapsedMillis = Math.max(0, Duration.between(updatedAt, now).toMillis());
-        return cookies + perSecond * elapsedMillis / 1000.0;
+        return cookies + perSecond * secondsSinceUpdate(now);
     }
 
-    public void collectPassiveIncome(Instant now, long perSecond) {
-        cookies = cookiesAt(now, perSecond);
+    public void catchUp(Instant now, long perSecond) {
+        double elapsed = secondsSinceUpdate(now);
+        cookies += perSecond * elapsed;
+        clickAllowance = Math.min(MAX_CLICK_ALLOWANCE, clickAllowance + elapsed * CLICKS_PER_SECOND_LIMIT);
         if (now.isAfter(updatedAt)) {
             updatedAt = now;
         }
     }
 
-    public void click(int count, long perClick) {
-        cookies += (double) count * perClick;
-        totalClicks += count;
+    public int click(int count, long perClick) {
+        int accepted = (int) Math.min(count, Math.floor(clickAllowance));
+        clickAllowance -= accepted;
+        cookies += (double) accepted * perClick;
+        totalClicks += accepted;
+        return accepted;
     }
 
     public boolean canAfford(long cost) {
@@ -58,7 +67,12 @@ public class GameStateEntity {
     public void reset(Instant now) {
         cookies = 0;
         totalClicks = 0;
+        clickAllowance = MAX_CLICK_ALLOWANCE;
         updatedAt = now;
+    }
+
+    private double secondsSinceUpdate(Instant now) {
+        return Math.max(0, Duration.between(updatedAt, now).toNanos()) / 1e9;
     }
 
     public double getCookies() {

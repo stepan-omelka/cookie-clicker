@@ -22,7 +22,7 @@ class GameStateEntityTest {
     void ignoresClockGoingBackwards() {
         var state = new GameStateEntity(1L, 10, 0, START);
 
-        state.collectPassiveIncome(START.minusSeconds(5), 4);
+        state.catchUp(START.minusSeconds(5), 4);
 
         assertThat(state.getCookies()).isEqualTo(10.0);
         assertThat(state.getUpdatedAt()).isEqualTo(START);
@@ -32,10 +32,24 @@ class GameStateEntityTest {
     void clicksUseCurrentPerClickValue() {
         var state = new GameStateEntity(1L, 0, 0, START);
 
-        state.click(3, 5);
+        int accepted = state.click(3, 5);
 
+        assertThat(accepted).isEqualTo(3);
         assertThat(state.getCookies()).isEqualTo(15.0);
         assertThat(state.getTotalClicks()).isEqualTo(3);
+    }
+
+    @Test
+    void limitsHowFastClicksCanBeAdded() {
+        var state = new GameStateEntity(1L, 0, 0, START);
+
+        assertThat(state.click(500, 1)).isEqualTo(500);
+        assertThat(state.click(500, 1)).isEqualTo(100);
+        assertThat(state.click(500, 1)).isZero();
+
+        state.catchUp(START.plusSeconds(2), 0);
+        assertThat(state.click(500, 1)).isEqualTo(40);
+        assertThat(state.getTotalClicks()).isEqualTo(640);
     }
 
     @Test

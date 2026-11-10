@@ -11,6 +11,12 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
+import java.util.ArrayList;
+import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.Executors;
+
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -27,7 +33,7 @@ class GameApiIntegrationTest {
 
     @BeforeEach
     void resetGame() throws Exception {
-        mockMvc.perform(delete("/api/game")).andExpect(status().isNoContent());
+        mockMvc.perform(delete("/api/game")).andExpect(status().isOk());
     }
 
     @Test
@@ -55,6 +61,32 @@ class GameApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.cookies").value(20.0))
                 .andExpect(jsonPath("$.totalClicks").value(20));
+    }
+
+    @Test
+    void retriedBatchIsCountedOnce() throws Exception {
+        var batchId = UUID.randomUUID();
+
+        click(batchId, 10).andExpect(jsonPath("$.totalClicks").value(10));
+        click(batchId, 10).andExpect(status().isOk()).andExpect(jsonPath("$.totalClicks").value(10));
+    }
+
+    @Test
+    void parallelClicksAreNotLost() throws Exception {
+        var executor = Executors.newFixedThreadPool(8);
+        try {
+            var tasks = new ArrayList<Callable<Integer>>();
+            for (int i = 0; i < 20; i++) {
+                tasks.add(() -> click(5).andReturn().getResponse().getStatus());
+            }
+            for (var result : executor.invokeAll(tasks)) {
+                assertThat(result.get()).isEqualTo(200);
+            }
+        } finally {
+            executor.shutdown();
+        }
+
+        mockMvc.perform(get("/api/game")).andExpect(jsonPath("$.totalClicks").value(100));
     }
 
     @Test
@@ -86,6 +118,10 @@ class GameApiIntegrationTest {
     void rejectsInvalidClickCount() throws Exception {
         click(0).andExpect(status().isBadRequest());
         click(GameService.MAX_CLICKS_PER_REQUEST + 1).andExpect(status().isBadRequest());
+        mockMvc.perform(post("/api/game/clicks")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"count\": 5}"))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
@@ -93,17 +129,20 @@ class GameApiIntegrationTest {
         click(20);
         mockMvc.perform(post("/api/game/upgrades/cursor"));
 
-        mockMvc.perform(delete("/api/game")).andExpect(status().isNoContent());
-
-        mockMvc.perform(get("/api/game"))
+        mockMvc.perform(delete("/api/game"))
+                .andExpect(status().isOk())
                 .andExpect(jsonPath("$.cookies").value(0.0))
                 .andExpect(jsonPath("$.totalClicks").value(0))
                 .andExpect(jsonPath("$.upgrades[0].owned").value(0));
     }
 
     private ResultActions click(int count) throws Exception {
+        return click(UUID.randomUUID(), count);
+    }
+
+    private ResultActions click(UUID batchId, int count) throws Exception {
         return mockMvc.perform(post("/api/game/clicks")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"count\": " + count + "}"));
+                .content("{\"id\": \"" + batchId + "\", \"count\": " + count + "}"));
     }
 }

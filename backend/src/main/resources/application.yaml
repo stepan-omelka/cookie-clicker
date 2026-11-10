@@ -5,6 +5,8 @@ spring:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/cookie_clicker}
     username: ${DB_USER:click-master}
     password: ${DB_PASSWORD:click-the-cookie}
+    hikari:
+      connection-init-sql: SET lock_timeout = '3s'
   jpa:
     open-in-view: false
     hibernate:
