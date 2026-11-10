@@ -8,7 +8,9 @@ import org.springframework.core.env.MapPropertySource;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class DatabaseUrlEnvironmentPostProcessor implements EnvironmentPostProcessor {
 
@@ -32,14 +34,25 @@ public class DatabaseUrlEnvironmentPostProcessor implements EnvironmentPostProce
         }
         int separator = userInfo.indexOf(':');
         String port = uri.getPort() == -1 ? "" : ":" + uri.getPort();
-        String query = uri.getRawQuery() == null ? "" : "?" + uri.getRawQuery();
         return Map.of(
-                "spring.datasource.url", "jdbc:postgresql://" + uri.getHost() + port + uri.getRawPath() + query,
+                "spring.datasource.url", "jdbc:postgresql://" + uri.getHost() + port + uri.getRawPath() + jdbcQuery(uri.getRawQuery()),
                 "spring.datasource.username", decode(userInfo.substring(0, separator)),
                 "spring.datasource.password", decode(userInfo.substring(separator + 1)));
     }
 
+    // Neon uses the libpq name, pgjdbc ignores it unless renamed
+    private static String jdbcQuery(String rawQuery) {
+        if (rawQuery == null) {
+            return "";
+        }
+        return "?" + Arrays.stream(rawQuery.split("&"))
+                .map(parameter -> parameter.startsWith("channel_binding=")
+                        ? "channelBinding=" + parameter.substring("channel_binding=".length())
+                        : parameter)
+                .collect(Collectors.joining("&"));
+    }
+
     private static String decode(String value) {
-        return URLDecoder.decode(value, StandardCharsets.UTF_8);
+        return URLDecoder.decode(value.replace("+", "%2B"), StandardCharsets.UTF_8);
     }
 }
