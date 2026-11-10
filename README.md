@@ -36,9 +36,9 @@ Database settings can be overridden with `DB_URL`, `DB_USER` and `DB_PASSWORD`.
 |---|---|---|
 | GET | `/api/title` | app title |
 | GET | `/api/game` | current game state |
-| POST | `/api/game/clicks` | add clicks, body `{ "count": 5 }` (1–500) |
+| POST | `/api/game/clicks` | add clicks, body `{ "id": "<uuid>", "count": 5 }` (1–500) |
 | POST | `/api/game/upgrades/{id}` | buy an upgrade (404 unknown, 409 not enough cookies) |
-| DELETE | `/api/game` | reset the game |
+| DELETE | `/api/game` | reset the game, returns the fresh state |
 
 Errors are returned as Problem Details (RFC 9457).
 
@@ -46,7 +46,10 @@ Errors are returned as Problem Details (RFC 9457).
 
 - Passive income is computed from the time since the last update, so nothing runs on the server in the background.
 - The frontend shows clicks immediately and sends them in batches once per second. All requests go through one `concatMap` queue, so pending clicks always reach the server before a purchase.
+- Every click batch has an id. A retried batch (e.g. after a lost response) is counted only once. Clicks still unsent when the tab closes go out with `sendBeacon`.
+- The server accepts at most 20 clicks per second (with a burst of 600), so a script can't add unlimited cookies.
 - Writes lock the game row (`SELECT … FOR UPDATE`), so parallel requests can't lose updates.
+- There is one shared save and no accounts. Anyone with access to the API can reset it.
 
 ## Tests
 
@@ -55,7 +58,7 @@ cd backend && ./mvnw test
 ```
 
 ```bash
-cd frontend && npm test
+cd frontend && npm test -- --watch=false
 ```
 
 Backend tests start PostgreSQL in Docker through Testcontainers.
