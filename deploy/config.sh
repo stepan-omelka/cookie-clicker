@@ -1,0 +1,8 @@
+PROJECT_ID="${PROJECT_ID:?Set PROJECT_ID to your Firebase project id}"
+REGION="europe-west1"
+SERVICE="cookie-clicker-api"
+REPOSITORY="cookie-clicker"
+TOPIC="billing-kill-switch"
+KILL_SWITCH="billing-kill-switch"
+BUDGET_AMOUNT="${BUDGET_AMOUNT:-1}"
+KILL_AT="${KILL_AT:-0.01}"
