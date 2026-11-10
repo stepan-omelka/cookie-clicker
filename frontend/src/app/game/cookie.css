@@ -41,8 +41,11 @@
   position: absolute;
   translate: -50% -50%;
   font-weight: 800;
-  font-size: 1.4rem;
-  color: var(--ink);
+  font-size: 1.5rem;
+  color: #fffaf2;
+  text-shadow:
+    0 1px 2px rgb(59 36 22 / 0.7),
+    0 0 10px rgb(59 36 22 / 0.35);
   pointer-events: none;
   animation: float-up 900ms ease-out forwards;
 }
