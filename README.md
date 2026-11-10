@@ -1,5 +1,7 @@
 # Cookie Clicker
 
+**Live:** https://cookie-clicker-he2s.onrender.com (free tier, so the first request after a pause can take about a minute)
+
 Small full-stack game: PostgreSQL, Spring Boot and Angular.
 
 Click the cookie, buy upgrades that give more cookies per click or per second. Progress is stored in the database, the server validates every purchase.
@@ -58,7 +60,7 @@ Runs for free on [Render](https://render.com) (app) and [Neon](https://neon.tech
 The root `Dockerfile` builds Angular and packages it into the Spring Boot jar, so one service serves the game and the API.
 
 1. **Neon:** create a project in AWS Europe Central (Frankfurt). Take the **direct** connection string (*Connect* with pooling turned off). `neon init` also writes it to `.env.local` as `DATABASE_URL_UNPOOLED`; that file is ignored by git.
-2. **Render:** *New → Blueprint*, pick this repository. Render reads `render.yaml` and asks for `DATABASE_URL`: paste the direct Neon connection string (`postgresql://user:password@host/db?sslmode=require`).
+2. **Render:** *New → Blueprint*, pick this repository. Render reads `render.yaml` and asks for `DATABASE_URL`: paste the direct Neon connection string (`postgresql://user:password@host/db?sslmode=require`). If the deploy fails with `Connection to localhost:5432 refused`, the value is missing: set it under the service's *Environment*.
 3. After the first build the game runs at `https://cookie-clicker-<id>.onrender.com`. Every push to `main` redeploys.
 
 Free tier limits:
