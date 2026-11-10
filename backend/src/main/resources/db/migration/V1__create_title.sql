@@ -1,0 +1,6 @@
+CREATE TABLE app_title (
+    id BIGINT PRIMARY KEY,
+    text TEXT NOT NULL
+);
+
+INSERT INTO app_title VALUES (1, 'DB COOKIE TITLE');

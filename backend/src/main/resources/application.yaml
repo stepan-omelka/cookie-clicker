@@ -1,3 +1,10 @@
 spring:
   application:
     name: backend
+  datasource:
+    url: jdbc:postgresql://localhost:5432/cookie_clicker
+    username: click-master
+    password: click-the-cookie
+  jpa:
+    hibernate:
+      ddl-auto: validate
