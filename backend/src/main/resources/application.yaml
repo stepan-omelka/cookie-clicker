@@ -2,9 +2,13 @@ spring:
   application:
     name: backend
   datasource:
-    url: jdbc:postgresql://localhost:5432/cookie_clicker
-    username: click-master
-    password: click-the-cookie
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/cookie_clicker}
+    username: ${DB_USER:click-master}
+    password: ${DB_PASSWORD:click-the-cookie}
   jpa:
+    open-in-view: false
     hibernate:
       ddl-auto: validate
+  mvc:
+    problemdetails:
+      enabled: true
