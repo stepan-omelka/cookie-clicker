@@ -10,6 +10,9 @@ spring:
     password: ${DB_PASSWORD:click-the-cookie}
     hikari:
       connection-init-sql: SET lock_timeout = '3s'
+      minimum-idle: 0
+      idle-timeout: 60000
+      keepalive-time: 0
   jpa:
     open-in-view: false
     hibernate:
