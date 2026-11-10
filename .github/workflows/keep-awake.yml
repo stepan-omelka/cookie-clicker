@@ -2,7 +2,9 @@ name: keep awake
 
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    # Daytime only: 06:00-21:50 UTC (07-23 Prague time in winter, 08-24 in summer). Render's 750 free hours a
+    # month are shared by every service in the workspace; 24/7 would use them all and leave none for the others.
+    - cron: "*/10 6-21 * * *"
   workflow_dispatch:
 
 permissions: {}
