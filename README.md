@@ -66,7 +66,7 @@ The root `Dockerfile` builds Angular and packages it into the Spring Boot jar, s
 Free tier limits:
 
 - Render sleeps after 15 minutes without traffic, and the first request then takes about a minute.
-- To avoid that, set the repository variable `APP_URL` (*Settings → Secrets and variables → Actions → Variables*) to the app URL. `.github/workflows/keep-awake.yml` then requests the home page every 10 minutes. One always-on service fits into Render's 750 free hours a month.
+- To avoid that, set the repository variable `APP_URL` (*Settings → Secrets and variables → Actions → Variables*) to the app URL. `.github/workflows/keep-awake.yml` then requests the home page every 10 minutes from 06:00 to 22:00 UTC. That uses about 530 of Render's 750 free hours a month, which are shared by all services in the workspace, and leaves the rest for other apps; at night the first visit takes a minute.
 - The home page doesn't touch the database, and idle connections close after a minute, so Neon still sleeps when nobody plays and stays within its 100 compute hours.
 - GitHub pauses scheduled workflows after 60 days without commits. The app then simply goes back to sleeping between visits.
 
