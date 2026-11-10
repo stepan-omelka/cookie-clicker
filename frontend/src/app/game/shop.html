@@ -1,0 +1,23 @@
+<h2>Shop</h2>
+<ul>
+  @for (upgrade of store.upgrades(); track upgrade.id) {
+    <li>
+      <button
+        class="upgrade"
+        type="button"
+        [disabled]="!store.canAfford(upgrade.cost)"
+        (click)="store.buy(upgrade.id)"
+      >
+        <span class="icon" aria-hidden="true">{{ icon(upgrade.id) }}</span>
+        <span class="info">
+          <span class="name">{{ upgrade.name }}</span>
+          <span class="description">{{ upgrade.description }}</span>
+        </span>
+        <span class="meta">
+          <span class="cost">{{ upgrade.cost | number }} 🍪</span>
+          <span class="owned" [attr.aria-label]="upgrade.owned + ' owned'">×{{ upgrade.owned }}</span>
+        </span>
+      </button>
+    </li>
+  }
+</ul>

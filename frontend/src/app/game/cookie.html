@@ -1,0 +1,27 @@
+<button class="cookie" type="button" aria-label="Bake a cookie" (click)="bake($event)">
+  <svg viewBox="0 0 200 200" aria-hidden="true">
+    <circle cx="100" cy="100" r="94" fill="#c9843f" />
+    <circle cx="100" cy="98" r="86" fill="#e3a65f" />
+    <circle cx="82" cy="78" r="58" fill="#eab676" opacity="0.5" />
+    <g fill="#4a2a18">
+      <ellipse cx="70" cy="62" rx="11" ry="9" transform="rotate(-20 70 62)" />
+      <ellipse cx="124" cy="54" rx="9" ry="7" transform="rotate(25 124 54)" />
+      <ellipse cx="148" cy="100" rx="11" ry="8" transform="rotate(70 148 100)" />
+      <ellipse cx="98" cy="102" rx="10" ry="8" />
+      <ellipse cx="56" cy="118" rx="9" ry="11" transform="rotate(10 56 118)" />
+      <ellipse cx="112" cy="146" rx="12" ry="8" transform="rotate(-15 112 146)" />
+      <ellipse cx="72" cy="160" rx="7" ry="6" />
+      <ellipse cx="146" cy="140" rx="7" ry="6" />
+    </g>
+  </svg>
+</button>
+@for (pop of pops(); track pop.id) {
+  <span
+    class="pop"
+    aria-hidden="true"
+    [style.left.px]="pop.x"
+    [style.top.px]="pop.y"
+    (animationend)="removePop(pop.id)"
+    >+{{ pop.amount }}</span
+  >
+}
