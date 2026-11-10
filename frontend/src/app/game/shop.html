@@ -15,7 +15,9 @@
         </span>
         <span class="meta">
           <span class="cost">{{ upgrade.cost | number }} 🍪</span>
-          <span class="owned" [attr.aria-label]="upgrade.owned + ' owned'">×{{ upgrade.owned }}</span>
+          <span class="owned" [attr.aria-label]="upgrade.owned + ' owned'"
+            >×{{ upgrade.owned }}</span
+          >
         </span>
       </button>
     </li>

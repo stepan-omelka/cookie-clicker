@@ -10,7 +10,13 @@
 
   color-scheme: light;
   font-family:
-    ui-rounded, 'SF Pro Rounded', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    ui-rounded,
+    'SF Pro Rounded',
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
   color: var(--ink);
   background: var(--paper);
   -webkit-font-smoothing: antialiased;

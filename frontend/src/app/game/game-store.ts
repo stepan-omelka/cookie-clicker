@@ -1,7 +1,18 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { computed, inject, Injectable, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { catchError, concatMap, EMPTY, finalize, fromEvent, interval, Observable, Subject, switchMap, tap } from 'rxjs';
+import {
+  catchError,
+  concatMap,
+  EMPTY,
+  finalize,
+  fromEvent,
+  interval,
+  Observable,
+  Subject,
+  switchMap,
+  tap,
+} from 'rxjs';
 import { GameApi } from './game-api';
 import { Game } from './game.models';
 
