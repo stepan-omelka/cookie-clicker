@@ -2,6 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { aGame } from '../testing/game-fixture';
+import { GameApi } from './game-api';
 import { GameStore } from './game-store';
 
 describe('GameStore', () => {
@@ -27,6 +28,12 @@ describe('GameStore', () => {
     http.expectOne('/api/game').flush(game);
   }
 
+  function clickTimes(times: number) {
+    for (let i = 0; i < times; i++) {
+      store.click();
+    }
+  }
+
   it('becomes ready after loading the game', () => {
     expect(store.status()).toBe('loading');
 
@@ -46,15 +53,13 @@ describe('GameStore', () => {
   it('shows clicks immediately and sends them in one batch', () => {
     loadGame(aGame({ perClick: 2 }));
 
-    store.click();
-    store.click();
-    store.click();
+    clickTimes(3);
     expect(store.cookies()).toBe(6);
     http.expectNone('/api/game/clicks');
 
     vi.advanceTimersByTime(1000);
     const request = http.expectOne('/api/game/clicks');
-    expect(request.request.body).toEqual({ count: 3 });
+    expect(request.request.body).toEqual({ id: expect.any(String), count: 3 });
 
     request.flush(aGame({ cookies: 6, perClick: 2, totalClicks: 3 }));
     expect(store.cookies()).toBe(6);
@@ -73,6 +78,53 @@ describe('GameStore', () => {
     expect(store.cookies()).toBe(2);
   });
 
+  it('retries a failed batch with the same id', () => {
+    loadGame();
+    clickTimes(4);
+
+    vi.advanceTimersByTime(1000);
+    const first = http.expectOne('/api/game/clicks');
+    first.error(new ProgressEvent('error'));
+    expect(store.notice()).toContain("Can't reach the bakery");
+    expect(store.cookies()).toBe(4);
+
+    store.click();
+    vi.advanceTimersByTime(1000);
+    const retry = http.expectOne('/api/game/clicks');
+    expect(retry.request.body).toEqual(first.request.body);
+
+    retry.flush(aGame({ cookies: 4, totalClicks: 4 }));
+    expect(store.notice()).toBeNull();
+    expect(store.cookies()).toBe(5);
+  });
+
+  it('drops a batch the server rejects as invalid', () => {
+    loadGame();
+    clickTimes(2);
+
+    vi.advanceTimersByTime(1000);
+    http
+      .expectOne('/api/game/clicks')
+      .flush({ detail: 'Invalid' }, { status: 400, statusText: 'Bad Request' });
+
+    expect(store.cookies()).toBe(0);
+    vi.advanceTimersByTime(1000);
+    http.expectNone('/api/game/clicks');
+  });
+
+  it('gives up on a request that hangs', () => {
+    loadGame();
+    store.click();
+
+    vi.advanceTimersByTime(1000);
+    const hanging = http.expectOne('/api/game/clicks');
+    vi.advanceTimersByTime(10_000);
+
+    expect(hanging.cancelled).toBe(true);
+    expect(store.notice()).toContain("Can't reach the bakery");
+    http.expectOne('/api/game/clicks');
+  });
+
   it('adds passive income between syncs', () => {
     loadGame(aGame({ cookies: 10, perSecond: 2 }));
 
@@ -83,14 +135,12 @@ describe('GameStore', () => {
 
   it('sends pending clicks before buying', () => {
     loadGame();
-    for (let i = 0; i < 15; i++) {
-      store.click();
-    }
+    clickTimes(15);
 
     store.buy('cursor');
 
     const clicks = http.expectOne('/api/game/clicks');
-    expect(clicks.request.body).toEqual({ count: 15 });
+    expect(clicks.request.body).toEqual({ id: expect.any(String), count: 15 });
     http.expectNone('/api/game/upgrades/cursor');
     clicks.flush(aGame({ cookies: 15, totalClicks: 15 }));
 
@@ -111,15 +161,27 @@ describe('GameStore', () => {
     expect(store.notice()).toBeNull();
   });
 
-  it('reloads the game after reset', () => {
+  it('starts over on reset and forgets unsent clicks', () => {
     loadGame(aGame({ cookies: 500 }));
+    clickTimes(3);
 
     store.reset();
-    http
-      .expectOne({ method: 'DELETE', url: '/api/game' })
-      .flush(null, { status: 204, statusText: 'No Content' });
-    http.expectOne({ method: 'GET', url: '/api/game' }).flush(aGame());
+    http.expectOne({ method: 'DELETE', url: '/api/game' }).flush(aGame());
 
     expect(store.cookies()).toBe(0);
+    vi.advanceTimersByTime(1000);
+    http.expectNone('/api/game/clicks');
+  });
+
+  it('sends unsent clicks with a beacon when the page closes', () => {
+    const sendBeacon = vi.spyOn(TestBed.inject(GameApi), 'sendClicksOnExit').mockReturnValue(true);
+    loadGame();
+    clickTimes(3);
+
+    window.dispatchEvent(new Event('pagehide'));
+
+    expect(sendBeacon).toHaveBeenCalledWith({ id: expect.any(String), count: 3 });
+    vi.advanceTimersByTime(1000);
+    http.expectNone('/api/game/clicks');
   });
 });

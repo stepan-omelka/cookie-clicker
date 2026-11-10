@@ -20,3 +20,8 @@ export interface Game {
   totalClicks: number;
   upgrades: Upgrade[];
 }
+
+export interface ClickBatch {
+  id: string;
+  count: number;
+}

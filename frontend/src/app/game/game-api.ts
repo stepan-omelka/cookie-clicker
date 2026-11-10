@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
-import { AppTitle, Game } from './game.models';
+import { AppTitle, ClickBatch, Game } from './game.models';
 
 @Injectable({ providedIn: 'root' })
 export class GameApi {
@@ -14,8 +14,8 @@ export class GameApi {
     return this.http.get<Game>('/api/game');
   }
 
-  click(count: number) {
-    return this.http.post<Game>('/api/game/clicks', { count });
+  click(batch: ClickBatch) {
+    return this.http.post<Game>('/api/game/clicks', batch, { keepalive: true });
   }
 
   buy(upgradeId: string) {
@@ -23,11 +23,11 @@ export class GameApi {
   }
 
   reset() {
-    return this.http.delete<void>('/api/game');
+    return this.http.delete<Game>('/api/game');
   }
 
-  sendClicksOnExit(count: number) {
-    const body = new Blob([JSON.stringify({ count })], { type: 'application/json' });
+  sendClicksOnExit(batch: ClickBatch): boolean {
+    const body = new Blob([JSON.stringify(batch)], { type: 'application/json' });
     return navigator.sendBeacon('/api/game/clicks', body);
   }
 }

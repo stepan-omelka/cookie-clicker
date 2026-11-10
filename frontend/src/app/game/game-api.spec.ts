@@ -17,12 +17,12 @@ describe('GameApi', () => {
 
   afterEach(() => http.verify());
 
-  it('sends clicks as a JSON body', () => {
-    api.click(7).subscribe();
+  it('sends a click batch as a JSON body', () => {
+    api.click({ id: 'batch-1', count: 7 }).subscribe();
 
     const request = http.expectOne('/api/game/clicks');
     expect(request.request.method).toBe('POST');
-    expect(request.request.body).toEqual({ count: 7 });
+    expect(request.request.body).toEqual({ id: 'batch-1', count: 7 });
   });
 
   it('buys an upgrade by id', () => {

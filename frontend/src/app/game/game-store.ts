@@ -4,44 +4,41 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   catchError,
   concatMap,
+  defer,
   EMPTY,
-  finalize,
+  filter,
   fromEvent,
   interval,
   Observable,
   Subject,
-  switchMap,
   tap,
+  throwError,
+  timeout,
 } from 'rxjs';
 import { GameApi } from './game-api';
-import { Game } from './game.models';
+import { ClickBatch, Game } from './game.models';
 
 export const MAX_CLICKS_PER_REQUEST = 500;
 const TICK_MS = 100;
 const FLUSH_MS = 1000;
 const REFRESH_MS = 30_000;
+const REQUEST_TIMEOUT_MS = 10_000;
 const NOTICE_MS = 3000;
 const OFFLINE_NOTICE = "Can't reach the bakery. Your clicks are safe, retrying…";
 
 type Status = 'loading' | 'ready' | 'offline';
 
-interface Command {
-  request: () => Observable<Game>;
-  onSuccess?: () => void;
-  onError?: (error: unknown) => void;
-  onFinish?: () => void;
-}
-
 @Injectable({ providedIn: 'root' })
 export class GameStore {
   private readonly api = inject(GameApi);
-  private readonly commands = new Subject<Command>();
+  private readonly commands = new Subject<() => Observable<Game>>();
 
   private readonly serverGame = signal<Game | null>(null);
   private readonly syncedAt = signal(Date.now());
   private readonly now = signal(Date.now());
   private readonly unsyncedClicks = signal(0);
-  private queuedClicks = 0;
+  private batch: ClickBatch | null = null;
+  private queuedFlushes = 0;
 
   readonly status = signal<Status>('loading');
   readonly notice = signal<string | null>(null);
@@ -66,17 +63,13 @@ export class GameStore {
     this.commands
       .pipe(
         concatMap((command) =>
-          command.request().pipe(
-            tap((game) => {
-              command.onSuccess?.();
-              this.apply(game);
-            }),
+          defer(command).pipe(
+            timeout(REQUEST_TIMEOUT_MS),
+            tap((game) => this.apply(game)),
             catchError((error) => {
-              command.onError?.(error);
               this.handleError(error);
               return EMPTY;
             }),
-            finalize(() => command.onFinish?.()),
           ),
         ),
         takeUntilDestroyed(),
@@ -87,7 +80,10 @@ export class GameStore {
       .pipe(takeUntilDestroyed())
       .subscribe(() => this.now.set(Date.now()));
     interval(FLUSH_MS)
-      .pipe(takeUntilDestroyed())
+      .pipe(
+        filter(() => this.queuedFlushes === 0),
+        takeUntilDestroyed(),
+      )
       .subscribe(() => this.flushClicks());
     interval(REFRESH_MS)
       .pipe(takeUntilDestroyed())
@@ -97,12 +93,18 @@ export class GameStore {
       fromEvent(window, 'pagehide')
         .pipe(takeUntilDestroyed())
         .subscribe(() => this.sendClicksOnExit());
+      fromEvent<PageTransitionEvent>(window, 'pageshow')
+        .pipe(
+          filter((event) => event.persisted),
+          takeUntilDestroyed(),
+        )
+        .subscribe(() => this.refresh());
     }
   }
 
   load(): void {
     this.status.set('loading');
-    this.enqueue({ request: () => this.api.getGame() });
+    this.commands.next(() => this.api.getGame());
   }
 
   click(): number {
@@ -118,56 +120,92 @@ export class GameStore {
   }
 
   buy(upgradeId: string): void {
-    this.flushClicks();
-    this.enqueue({
-      request: () => this.api.buy(upgradeId),
-      onError: (error) => {
-        if (error instanceof HttpErrorResponse && error.status === 409) {
-          this.flash('Not enough cookies yet.');
-        }
-      },
-    });
+    this.flushClicks(true);
+    this.commands.next(() =>
+      this.api.buy(upgradeId).pipe(
+        catchError((error) => {
+          if (error instanceof HttpErrorResponse && error.status === 409) {
+            this.flash('Not enough cookies yet.');
+            return EMPTY;
+          }
+          return throwError(() => error);
+        }),
+      ),
+    );
   }
 
   reset(): void {
-    this.flushClicks();
-    this.enqueue({ request: () => this.api.reset().pipe(switchMap(() => this.api.getGame())) });
+    this.commands.next(() => {
+      this.batch = null;
+      this.unsyncedClicks.set(0);
+      return this.api.reset();
+    });
   }
 
   private refresh(): void {
     if (this.status() === 'ready') {
-      this.enqueue({ request: () => this.api.getGame() });
+      this.commands.next(() => this.api.getGame());
     }
   }
 
-  private flushClicks(): void {
-    let remaining = this.unsyncedClicks() - this.queuedClicks;
-    while (remaining > 0) {
-      const count = Math.min(remaining, MAX_CLICKS_PER_REQUEST);
-      remaining -= count;
-      this.queuedClicks += count;
-      this.enqueue({
-        request: () => this.api.click(count),
-        onSuccess: () => this.unsyncedClicks.update((clicks) => Math.max(0, clicks - count)),
-        onFinish: () => (this.queuedClicks -= count),
+  private unsentClicks(): number {
+    return this.unsyncedClicks() - (this.batch?.count ?? 0);
+  }
+
+  private flushClicks(all = false): void {
+    const pending = (this.batch ? 1 : 0) + Math.ceil(this.unsentClicks() / MAX_CLICKS_PER_REQUEST);
+    const flushes = all ? pending : Math.min(pending, 1);
+    for (let i = 0; i < flushes; i++) {
+      this.queuedFlushes++;
+      this.commands.next(() => {
+        this.queuedFlushes--;
+        return this.sendClicks();
       });
     }
   }
 
-  private sendClicksOnExit(): void {
-    let remaining = this.unsyncedClicks() - this.queuedClicks;
-    while (remaining > 0) {
-      const count = Math.min(remaining, MAX_CLICKS_PER_REQUEST);
-      if (!this.api.sendClicksOnExit(count)) {
-        return;
+  // the batch size is decided when the request goes out, retries reuse the same id
+  private sendClicks(): Observable<Game> {
+    if (!this.batch) {
+      const count = Math.min(this.unsentClicks(), MAX_CLICKS_PER_REQUEST);
+      if (count <= 0) {
+        return EMPTY;
       }
-      remaining -= count;
-      this.unsyncedClicks.update((clicks) => clicks - count);
+      this.batch = { id: crypto.randomUUID(), count };
+    }
+    const batch = this.batch;
+    return this.api.click(batch).pipe(
+      tap(() => this.settle(batch)),
+      catchError((error) => {
+        if (!isTransient(error)) {
+          this.settle(batch);
+        }
+        return throwError(() => error);
+      }),
+    );
+  }
+
+  private settle(batch: ClickBatch): void {
+    if (this.batch === batch) {
+      this.batch = null;
+      this.unsyncedClicks.update((clicks) => Math.max(0, clicks - batch.count));
     }
   }
 
-  private enqueue(command: Command): void {
-    this.commands.next(command);
+  private sendClicksOnExit(): void {
+    const batches = this.batch ? [this.batch] : [];
+    for (let unsent = this.unsentClicks(); unsent > 0; unsent -= MAX_CLICKS_PER_REQUEST) {
+      batches.push({ id: crypto.randomUUID(), count: Math.min(unsent, MAX_CLICKS_PER_REQUEST) });
+    }
+    for (const batch of batches) {
+      if (!this.api.sendClicksOnExit(batch)) {
+        return;
+      }
+      if (this.batch === batch) {
+        this.batch = null;
+      }
+      this.unsyncedClicks.update((clicks) => Math.max(0, clicks - batch.count));
+    }
   }
 
   private apply(game: Game): void {
@@ -193,11 +231,14 @@ export class GameStore {
   private handleError(error: unknown): void {
     if (this.status() === 'loading') {
       this.status.set('offline');
-      return;
+    } else if (isTransient(error)) {
+      this.notice.set(OFFLINE_NOTICE);
+    } else {
+      this.flash('Something went wrong. Please try again.');
     }
-    if (error instanceof HttpErrorResponse && error.status === 409) {
-      return;
-    }
-    this.notice.set(OFFLINE_NOTICE);
   }
+}
+
+function isTransient(error: unknown): boolean {
+  return !(error instanceof HttpErrorResponse) || error.status === 0 || error.status >= 500;
 }
