@@ -1,8 +1,0 @@
-PROJECT_ID="${PROJECT_ID:-stepan-cookie-clicker}"
-REGION="europe-west1"
-SERVICE="cookie-clicker-api"
-REPOSITORY="cookie-clicker"
-TOPIC="billing-kill-switch"
-KILL_SWITCH="billing-kill-switch"
-BUDGET_AMOUNT="${BUDGET_AMOUNT:-1}"
-KILL_AT="${KILL_AT:-0.01}"

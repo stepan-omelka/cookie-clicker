@@ -1,6 +1,4 @@
 .idea/
 .DS_Store
 
-deploy/cloudrun.env.yaml
-.firebase/
 frontend/dist/
