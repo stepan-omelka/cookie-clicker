@@ -28,7 +28,7 @@ cd frontend && npm install && npm start
 
 Open http://localhost:4200. The Angular dev server proxies `/api` to the backend on port 8080.
 
-Database settings can be overridden with `DB_URL`, `DB_USER` and `DB_PASSWORD`.
+Database settings can be overridden with `DB_URL`, `DB_USER` and `DB_PASSWORD`, or with a single `DATABASE_URL` (`postgresql://user:password@host/db`) as Neon and Render provide it.
 
 ## API
 
@@ -57,11 +57,8 @@ Runs for free on [Render](https://render.com) (app) and [Neon](https://neon.tech
 
 The root `Dockerfile` builds Angular and packages it into the Spring Boot jar, so one service serves the game and the API.
 
-1. **Neon:** create a project in AWS Europe Central (Frankfurt). Under *Connect*, turn off connection pooling and note host, database, user and password.
-2. **Render:** *New → Blueprint*, pick this repository. Render reads `render.yaml` and asks for:
-   - `DB_URL`: `jdbc:postgresql://<host>/<database>?sslmode=require`
-   - `DB_USER`
-   - `DB_PASSWORD`
+1. **Neon:** create a project in AWS Europe Central (Frankfurt). Take the **direct** connection string (*Connect* with pooling turned off). `neon init` also writes it to `.env.local` as `DATABASE_URL_UNPOOLED`; that file is ignored by git.
+2. **Render:** *New → Blueprint*, pick this repository. Render reads `render.yaml` and asks for `DATABASE_URL`: paste the direct Neon connection string (`postgresql://user:password@host/db?sslmode=require`).
 3. After the first build the game runs at `https://cookie-clicker-<id>.onrender.com`. Every push to `main` redeploys.
 
 Free tier limits:
