@@ -2,3 +2,8 @@
 .DS_Store
 
 frontend/dist/
+.env
+.env.*
+.neon
+node_modules/
+node_modules/

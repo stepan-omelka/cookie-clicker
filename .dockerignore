@@ -6,3 +6,6 @@ frontend/node_modules
 frontend/dist
 frontend/.angular
 backend/target
+node_modules
+.env*
+.neon
