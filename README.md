@@ -51,6 +51,10 @@ Errors are returned as Problem Details (RFC 9457).
 - Writes lock the game row (`SELECT … FOR UPDATE`), so parallel requests can't lose updates.
 - There is one shared save and no accounts. Anyone with access to the API can reset it.
 
+## Deployment
+
+The app can run on Firebase Hosting and Cloud Run with a Neon database, staying inside the free tiers. A spend cap and a billing kill switch keep it from charging: a bill would need deliberate abuse and stay at a few cents. See [deploy/README.md](deploy/README.md).
+
 ## Tests
 
 ```bash
