@@ -53,7 +53,23 @@ Errors are returned as Problem Details (RFC 9457).
 
 ## Deployment
 
-The app can run on Firebase Hosting and Cloud Run with a Neon database, staying inside the free tiers. A spend cap and a billing kill switch keep it from charging: a bill would need deliberate abuse and stay at a few cents. See [deploy/README.md](deploy/README.md).
+Runs for free on [Render](https://render.com) (app) and [Neon](https://neon.tech) (PostgreSQL). Neither needs a card, and without a payment method a service that hits a limit is suspended until the next month instead of being billed.
+
+The root `Dockerfile` builds Angular and packages it into the Spring Boot jar, so one service serves the game and the API.
+
+1. **Neon:** create a project in AWS Europe Central (Frankfurt). Under *Connect*, turn off connection pooling and note host, database, user and password.
+2. **Render:** *New → Blueprint*, pick this repository. Render reads `render.yaml` and asks for:
+   - `DB_URL`: `jdbc:postgresql://<host>/<database>?sslmode=require`
+   - `DB_USER`
+   - `DB_PASSWORD`
+3. After the first build the game runs at `https://cookie-clicker-<id>.onrender.com`. Every push to `main` redeploys.
+
+Free tier limits:
+
+- Render sleeps after 15 minutes without traffic, and the first request then takes about a minute.
+- To avoid that, set the repository variable `APP_URL` (*Settings → Secrets and variables → Actions → Variables*) to the app URL. `.github/workflows/keep-awake.yml` then requests the home page every 10 minutes. One always-on service fits into Render's 750 free hours a month.
+- The home page doesn't touch the database, and idle connections close after a minute, so Neon still sleeps when nobody plays and stays within its 100 compute hours.
+- GitHub pauses scheduled workflows after 60 days without commits. The app then simply goes back to sleeping between visits.
 
 ## Tests
 
